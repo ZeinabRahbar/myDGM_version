@@ -36,16 +36,6 @@ def pairwise_poincare_distances(x, dim=-1):
     dist = torch.arccosh(1e-6+1+2*pq/((1-x_norm)*(1-x_norm.transpose(-1,-2))))**2
     return dist, x
 
-def sparse_eye(size):
-    """
-    Returns the identity matrix as a sparse matrix
-    """
-    indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
-    values = torch.tensor(1.0).float().expand(size)
-    cls = getattr(torch.sparse, values.type().split(".")[-1])
-    return cls(indices, values, torch.Size([size, size])) 
-
-
 class DGM_d(nn.Module):
     def __init__(self, embed_f, k=5, distance="euclidean", sparse=True):
         super(DGM_d, self).__init__()
