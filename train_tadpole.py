@@ -501,63 +501,6 @@ from PIL import Image
 import torch
 import torch.utils.data as data
 
-class OfficeCaltechAmazonDataset(data.Dataset):
-    """Office-Caltech-Amazon dataset."""
-
-    def __init__(self, dataset_path, fold=0, train=True, samples_per_epoch=100, device='cpu', full=False):
-        self.dataset_path = dataset_path
-        self.fold = fold
-        self.train = train
-        self.samples_per_epoch = samples_per_epoch
-        self.device = device
-        self.full = full
-
-        self.classes, self.class_to_idx = self._find_classes()
-        self.data, self.targets = self._load_dataset()
-
-        self.n_features = self.data.shape[-1]
-        self.num_classes = len(self.classes)
-
-        self.X = torch.from_numpy(self.data[:, :, self.fold]).float().to(device)
-        self.y = torch.from_numpy(self.targets[:, self.fold]).long().to(device)
-
-        if self.train:
-            self.mask = torch.ones(self.X.shape[0]).to(device)
-        else:
-            self.mask = torch.zeros(self.X.shape[0]).to(device)
-
-    def _find_classes(self):
-        classes = [d.name for d in os.scandir(self.dataset_path) if d.is_dir()]
-        classes.sort()
-        class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
-        return classes, class_to_idx
-
-    def _load_dataset(self):
-        data = []
-        targets = []
-
-        for class_name in self.classes:
-            class_path = os.path.join(self.dataset_path, class_name)
-            images = os.listdir(class_path)
-
-            for image_name in images:
-                image_path = os.path.join(class_path, image_name)
-                image = Image.open(image_path)
-                image = image.resize((30, 30))  # Resize the image to match the Tadpole dataset shape
-                image = torch.tensor(image).permute(2, 0, 1).numpy()  # Convert PIL image to tensor
-
-                data.append(image)
-                targets.append(self.class_to_idx[class_name])
-
-        data = torch.stack(data)
-        targets = torch.tensor(targets).unsqueeze(1)
-        return data, targets
-
-    def __len__(self):
-        return self.samples_per_epoch
-
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx], self.mask[idx], [[]]
 
 
 
@@ -668,9 +611,7 @@ def run_training_process(run_params):
         train_data = TadpoleDataset(fold=run_params.fold,train=True, device='cuda')
         val_data = test_data = TadpoleDataset(fold=run_params.fold, train=False,samples_per_epoch=1)
 
-    if run_params.dataset == 'OfficeCaltechAmazonDataset':
-            train_data = OfficeCaltechAmazonDataset(fold=run_params.fold,train=True, device='cuda')
-            val_data = test_data = OfficeCaltechAmazonDataset(fold=run_params.fold, train=False,samples_per_epoch=1)
+
 
     if train_data is None:
         raise Exception("Dataset %s not supported" % run_params.dataset)
