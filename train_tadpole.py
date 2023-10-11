@@ -16,7 +16,6 @@ from torch import nn
 from torch.nn import Module, ModuleList, Sequential
 from torch_geometric.nn import EdgeConv, DenseGCNConv, DenseGraphConv, GCNConv, GATConv
 from torch.utils.data import DataLoader
-import torch_scatter
 
 import pytorch_lightning as pl
 from argparse import Namespace
