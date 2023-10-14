@@ -539,23 +539,34 @@ import numpy as np
 class TadpoleDataset(torch.utils.data.Dataset):
     """Face Landmarks dataset."""
 
-    def __init__(self, dataset, fold=0, train=True, samples_per_epoch=100, device='cpu', full=False):
-        self.dataset = dataset
-        self.n_features = 224  # Assuming the images are resized to 224x224
-        self.num_classes = len(dataset.classes)
-
-        self.samples_per_epoch = samples_per_epoch
-
-        if train:
-            self.mask = torch.ones(len(dataset)).to(device)
-        else:
-            self.mask = torch.zeros(len(dataset)).to(device)
+    def __init__(self, root_dir, fold=0, train=True):
+        
+        # Get class folders
+        self.class_dirs = os.listdir(root_dir) 
+        
+        # Lists to hold paths and labels
+        self.img_paths = []
+        self.labels = []
+        
+        # Gather data from folders
+        for i, class_dir in enumerate(self.class_dirs):
+            class_path = os.path.join(root_dir, class_dir) 
+            for img_path in os.listdir(class_path):
+                self.img_paths.append(os.path.join(class_path, img_path))
+                self.labels.append(i)
+                
+        self.num_classes = len(self.class_dirs)
 
     def __len__(self):
-        return self.samples_per_epoch
+        return len(self.img_paths)
 
     def __getitem__(self, idx):
-        image, label = self.dataset[idx]
+        
+        # Load and preprocess image
+        img_path = self.img_paths[idx]
+        image = Image.open(img_path).convert('RGB')
+        
+        label = self.labels[idx]
         return image, label
 
 
