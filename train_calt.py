@@ -473,12 +473,12 @@ from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 
 import os
-import cv2
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
 import torch
 from torch.utils.data import Dataset
+
 
 class TadpoleDataset(Dataset):
     def __init__(self, data_dir, train=True, samples_per_epoch=100, device='cpu'):
@@ -544,9 +544,7 @@ class TadpoleDataset(Dataset):
 
         return image, label, mask
 
-# Example usage:
-data_dir = "/content/office-caltech-amazon-data"
-dataset = CaltechAmazonDataset(data_dir, train=True, samples_per_epoch=100, device='cpu')
+
 
 
 class UKBBAgeDataset(torch.utils.data.Dataset):
@@ -646,8 +644,8 @@ def run_training_process(run_params):
         test_data = PlanetoidDataset(split='test', name=run_params.dataset, samples_per_epoch=1)
 
     if run_params.dataset == 'tadpole':
-        train_data = TadpoleDataset(image_dataset, fold=run_params.fold,train=True, device='cuda')
-        val_data = test_data = TadpoleDataset(image_dataset, fold=run_params.fold, train=False,samples_per_epoch=1)
+        train_data = TadpoleDataset("/content/myDGM_version/office-caltech-amazon-data", train=True,  samples_per_epoch=100, device='cuda')
+        val_data = test_data = TadpoleDataset("/content/myDGM_version/office-caltech-amazon-data", train=False,samples_per_epoch=10, device='cuda')
 
     
     if train_data is None:
