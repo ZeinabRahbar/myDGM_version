@@ -472,6 +472,82 @@ import torch
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 
+import os
+import cv2
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelBinarizer
+import torch
+from torch.utils.data import Dataset
+
+class TadpoleDataset(Dataset):
+    def __init__(self, data_dir, train=True, samples_per_epoch=100, device='cpu'):
+        self.data_dir = data_dir
+        self.train = train
+        self.samples_per_epoch = samples_per_epoch
+        self.device = device
+        self.image_paths = []
+        self.labels = []
+        self.X = None
+        self.y = None
+        self.mask = None
+        self.num_classes = 0
+
+        self.load_dataset()
+
+    def load_dataset(self):
+        label_to_index = {}
+        index = 0
+
+        for root, dirs, files in os.walk(self.data_dir):
+            for file in files:
+                if file.endswith(".jpg") or file.endswith(".png"):
+                    image_path = os.path.join(root, file)
+                    label = os.path.basename(root)
+
+                    if label not in label_to_index:
+                        label_to_index[label] = index
+                        index += 1
+
+                    self.image_paths.append(image_path)
+                    self.labels.append(label_to_index[label])
+
+        self.num_classes = len(label_to_index)
+
+        if self.train:
+            _, self.X, _, self.y = train_test_split(
+                self.image_paths, self.labels, test_size=1 - self.samples_per_epoch / len(self.image_paths),
+                random_state=42, stratify=self.labels)
+            self.mask = np.ones(len(self.X))
+        else:
+            self.X, _, self.y, self.mask = train_test_split(
+                self.image_paths, self.labels, test_size=self.samples_per_epoch / len(self.image_paths),
+                random_state=42, stratify=self.labels)
+
+    def __len__(self):
+        return self.samples_per_epoch
+
+    def __getitem__(self, idx):
+        image = cv2.imread(self.X[idx])
+        image = cv2.resize(image, (224, 224))
+        image = image.astype("float32") / 255.0
+        image = torch.from_numpy(image).float().to(self.device)
+
+        label = self.y[idx]
+        label_binarizer = LabelBinarizer()
+        label_binarizer.fit(range(self.num_classes))
+        label = label_binarizer.transform([label])
+        label = torch.from_numpy(label).float().to(self.device)
+
+        mask = self.mask[idx]
+        mask = torch.tensor(mask).to(self.device)
+
+        return image, label, mask
+
+# Example usage:
+data_dir = "/content/office-caltech-amazon-data"
+dataset = CaltechAmazonDataset(data_dir, train=True, samples_per_epoch=100, device='cpu')
+
 
 class UKBBAgeDataset(torch.utils.data.Dataset):
     """Face Landmarks dataset."""
@@ -495,80 +571,6 @@ class UKBBAgeDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return self.X,self.y,self.mask
-
-import os
-from PIL import Image
-import torch
-import torch.utils.data as data
-import os
-import torch
-from torchvision import datasets, transforms
-
-# Define the data directory path
-data_dir = 'office-caltech-amazon-data'
-
-# Define the transformation to apply to the images
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # Resize images to a consistent size
-    transforms.ToTensor(),  # Convert images to tensors
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # Normalize image pixel values
-])
-
-# Load the dataset
-image_dataset = datasets.ImageFolder(root=data_dir, transform=transform)
-
-# Print the number of images in the dataset
-print('Number of images:', len(image_dataset))
-
-# Print the class labels
-print('Class labels:', image_dataset.classes)
-
-# Access individual samples in the dataset
-sample_index = 900  # Index of the sample to access
-image, label = image_dataset[sample_index]
-print('Image shape:', image.shape)
-print('Label:', label)
-
-import torch
-import torch.utils.data as data
-import pickle
-import numpy as np
-
-
-class TadpoleDataset(torch.utils.data.Dataset):
-    """Face Landmarks dataset."""
-
-    def __init__(self, root_dir, fold=0, train=True):
-        
-        # Get class folders
-        self.class_dirs = os.listdir(root_dir) 
-        
-        # Lists to hold paths and labels
-        self.img_paths = []
-        self.labels = []
-        
-        # Gather data from folders
-        for i, class_dir in enumerate(self.class_dirs):
-            class_path = os.path.join(root_dir, class_dir) 
-            for img_path in os.listdir(class_path):
-                self.img_paths.append(os.path.join(class_path, img_path))
-                self.labels.append(i)
-                
-        self.num_classes = len(self.class_dirs)
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, idx):
-        
-        # Load and preprocess image
-        img_path = self.img_paths[idx]
-        image = Image.open(img_path).convert('RGB')
-        
-        label = self.labels[idx]
-        return image, label
-
-
 
 def get_planetoid_dataset(name, normalize_features=True, transform=None, split="complete"):
     path = osp.join('.', 'data', name)
