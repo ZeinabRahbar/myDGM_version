@@ -79,7 +79,6 @@ class DGM_d(nn.Module):
             self.D = (D * torch.exp(torch.clamp(self.temperature,-5,5))).detach().cpu()
             self.edges_hat=edges_hat.detach().cpu()
             self.logprobs=logprobs.detach().cpu()
-#             self.x=x
 
         return x, edges_hat, logprobs
     
@@ -138,7 +137,6 @@ class DGM_d(nn.Module):
             if self.debug:
                 self._x=x.detach().cpu()+0
 
-        
         rows = torch.arange(n).view(1,n,1).to(x.device).repeat(b,1,self.k)
         edges = torch.stack((indices.view(b,-1),rows.view(b,-1)),-2)
 
@@ -182,9 +180,7 @@ class DGM_c(nn.Module):
         if DGM_c.debug:
             self.A = A.data.cpu()
             self._x = _x.data.cpu()
-            
-#         self.A=A
-#         A = A/A.sum(-1,keepdim=True)
+
         return x, A, None
  
  
@@ -199,8 +195,6 @@ class MLP(nn.Module):
             if li==len(layers_size)-1 and not final_activation:
                 continue
             layers.append(nn.LeakyReLU(0.1))
-            
-            
         self.MLP = nn.Sequential(*layers)
         
     def forward(self, x, e=None):
@@ -216,7 +210,6 @@ class Identity(nn.Module):
         if self.retparam is not None:
             return params[self.retparam]
         return params
-    
 
 from torch.nn import Module, ModuleList, Sequential
 from torch import nn
@@ -260,7 +253,6 @@ class DGM_d(nn.Module):
                 #sampling here
                 edges_hat, logprobs = self.sample_without_replacement(D)
 
-              
         if self.debug:
             self.D = D
             self.edges_hat=edges_hat
@@ -269,10 +261,8 @@ class DGM_d(nn.Module):
 
         return x, edges_hat, logprobs
     
-
     def sample_without_replacement(self, logits):
         b,n,_ = logits.shape
-#         logits = logits * torch.exp(self.temperature*10)
         logits = logits * torch.exp(torch.clamp(self.temperature,-5,5))
         
         q = torch.rand_like(logits) + 1e-8
@@ -293,7 +283,6 @@ class DGM_Model(pl.LightningModule):
         if type(hparams) is not Namespace:
             hparams = Namespace(**hparams)
         
-#         self.hparams=hparams
         self.save_hyperparameters(hparams)
         conv_layers = hparams.conv_layers
         fc_layers = hparams.fc_layers
@@ -313,7 +302,6 @@ class DGM_Model(pl.LightningModule):
                     self.graph_f.append(DGM_d(MLP(dgm_l),k=hparams.k,distance=hparams.distance))
                 if hparams.ffun == 'knn':
                     self.graph_f.append(DGM_d(Identity(retparam=0),k=hparams.k,distance=hparams.distance))
-#                 self.graph_f.append(DGM_d(GCNConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))
             else:
                 self.graph_f.append(Identity())
             
@@ -331,8 +319,6 @@ class DGM_Model(pl.LightningModule):
             self.pre_fc = MLP(hparams.pre_fc, final_activation=True)
         self.avg_accuracy = None
         
-        
-        #torch lightning specific
         self.automatic_optimization = False
         self.debug=False
         
@@ -345,10 +331,6 @@ class DGM_Model(pl.LightningModule):
         for f,g in zip(self.graph_f, self.node_g):
             graph_x,edges,lprobs = f(graph_x,edges,None)
             b,n,d = x.shape
-            
-#             edges,_ = torch_geometric.utils.remove_self_loops(edges)
-#             edges,_ = torch_geometric.utils.add_self_loops(edges)
-
             self.edges=edges
             x = torch.nn.functional.relu(g(torch.dropout(x.view(-1,d), self.hparams.dropout, train=self.training), edges)).view(b,n,-1)
             graph_x = torch.cat([graph_x,x.detach()],-1)
@@ -376,15 +358,12 @@ class DGM_Model(pl.LightningModule):
         
         train_pred = pred[:,mask.to(torch.bool),:]
         train_lab = y[:,mask.to(torch.bool),:]
-#         train_w = weight[None,mask.to(torch.bool)]    
 
-        #loss = torch.nn.functional.cross_entropy(train_pred.view(-1,train_pred.shape[-1]),train_lab.argmax(-1).flatten())
         loss = torch.nn.functional.binary_cross_entropy_with_logits(train_pred,train_lab)
         loss.backward()
 
         correct_t = (train_pred.argmax(-1) == train_lab.argmax(-1)).float().mean().item()
 
-        #GRAPH LOSS
         if logprobs is not None: 
             corr_pred = (train_pred.argmax(-1)==train_lab.argmax(-1)).float().detach()
             wron_pred = (1-corr_pred)
@@ -405,11 +384,9 @@ class DGM_Model(pl.LightningModule):
             self.avg_accuracy = self.avg_accuracy.to(corr_pred.device)*0.95 +  0.05*corr_pred
             
         optimizer.step()
-
         self.log('train_acc', correct_t)
         self.log('train_loss', loss.detach().cpu())
-        
-    
+            
     def test_step(self, train_batch, batch_idx):
         X, y, mask, edges = train_batch
         edges = edges[0]
@@ -426,7 +403,6 @@ class DGM_Model(pl.LightningModule):
         correct_t = (test_pred.argmax(-1) == test_lab.argmax(-1)).float().mean().item()
         loss = torch.nn.functional.binary_cross_entropy_with_logits(test_pred,test_lab)
         self.log('test_loss', loss.detach().cpu())
-#         self.log('test_graph_loss', loss.detach().cpu())
         self.log('test_acc', 100*correct_t)
     
     def validation_step(self, train_batch, batch_idx):
@@ -450,30 +426,6 @@ class DGM_Model(pl.LightningModule):
         
         self.log('val_loss', loss.detach())
         self.log('val_acc', 100*correct_t)
-        
-#         ####### visualizations ###########
-#         try:
-#             self.graph_f[0].debug=True
-#             pred,logprobs = self(X)
-#             self.graph_f[0].debug=False
-
-#             x = self.graph_f[0].x[0].detach()
-#             c = torch.argmax(y,-1)
-#             D = self.graph_f[0].distance(x)[0]
-#             D.diagonal().fill_(0)
-
-#             sidx = torch.argsort( (c[0]+1)*10 + (mask+1)*1)
-#             P = torch.exp(-D[sidx,:][:,sidx]*torch.clamp(self.graph_f[0].temperature.detach().cpu(),-5,5).exp())#>0.001
-
-#             img = PIL.Image.fromarray((P*255).byte().detach().cpu().numpy())
-#             img = img.resize((512,512), PIL.Image.ANTIALIAS)
-
-#             I = wandb.Image(img, caption="adj")
-#             self.logger.experiment.log({'adj': [I]})
-#         except:
-#             pass
-      
-
 
 import sys
 import torch
@@ -498,8 +450,7 @@ class UKBBAgeDataset(torch.utils.data.Dataset):
         if train:
             self.mask = torch.from_numpy(train_mask_[:,fold]).to(device)
         else:
-            self.mask = torch.from_numpy(test_mask_[:,fold]).to(device)
-            
+            self.mask = torch.from_numpy(test_mask_[:,fold]).to(device)        
         self.samples_per_epoch = samples_per_epoch
 
     def __len__(self):
@@ -507,9 +458,7 @@ class UKBBAgeDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return self.X,self.y,self.mask
-    
-    
-    
+        
 class TadpoleDataset(torch.utils.data.Dataset):
     """Face Landmarks dataset."""
 
@@ -540,48 +489,6 @@ class TadpoleDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.X,self.y,self.mask, [[]]
  
-    
-# class TadpoleDataset(torch.utils.data.Dataset):
-#     """Face Landmarks dataset."""
-
-#     def __init__(self, fold=0, split='train', samples_per_epoch=100, device='cpu'):
-       
-#         with open('data/train_data.pickle', 'rb') as f:
-#             X_,y_,train_mask_,test_mask_, weight_ = pickle.load(f) # Load the data
-        
-#         X_ = X_[...,:30,:] # For DGM we use modality 1 (M1) for both node representation and graph learning.
-
-#         self.X = torch.from_numpy(X_[:,:,fold]).float().to(device)
-#         self.y = torch.from_numpy(y_[:,:,fold]).float().to(device)
-#         self.weight = torch.from_numpy(np.squeeze(weight_[:1,fold])).float().to(device)
-
-#         # split train set in train/val
-#         train_mask = train_mask_[:,fold]
-#         nval = int(train_mask.sum()*0.2)
-#         val_idxs = np.random.RandomState(1).choice(np.nonzero(train_mask.flatten())[0],(nval,),replace=False)
-#         train_mask[val_idxs] = 0;
-#         val_mask = train_mask*0
-#         val_mask[val_idxs] = 1
-                          
-#         print('DATA STATS: train: %d val: %d' % (train_mask.sum(),val_mask.sum()))
-            
-#         if split=='train':
-#             self.mask = torch.from_numpy(train_mask).to(device)
-#         if split=='val':
-#             self.mask = torch.from_numpy(val_mask).to(device)
-#         if split=='test':
-#             self.mask = torch.from_numpy(test_mask_[:,fold]).to(device)
-            
-#         self.samples_per_epoch = samples_per_epoch
-
-#     def __len__(self):
-#         return self.samples_per_epoch
-
-#     def __getitem__(self, idx):
-#         return self.X,self.y,self.mask
-    
-
-
 def get_planetoid_dataset(name, normalize_features=True, transform=None, split="complete"):
     path = osp.join('.', 'data', name)
     if split == 'complete':
@@ -629,8 +536,6 @@ class PlanetoidDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return self.X,self.y,self.mask,self.edge_index
-    
-    
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0";
 
@@ -676,7 +581,6 @@ def run_training_process(run_params):
         def test_dataloader(self):
             return test_loader
     
-    
     #configure input feature size
     if run_params.pre_fc is None or len(run_params.pre_fc)==0: 
         if len(run_params.dgm_layers[0])>0:
@@ -708,8 +612,7 @@ def run_training_process(run_params):
         
     logger = TensorBoardLogger("logs/")
     trainer = pl.Trainer.from_argparse_args(run_params,logger=logger,
-                                            callbacks=callbacks)
-    
+                                            callbacks=callbacks) 
     trainer.fit(model, datamodule=MyDataModule())
     trainer.test()
     
@@ -726,7 +629,6 @@ if __name__ == "__main__":
     
     parser.add_argument("--dataset", default='Cora')
     parser.add_argument("--fold", default='0', type=int) #Used for k-fold cross validation in tadpole/ukbb
-    
     
     parser.add_argument("--conv_layers", default=[[32,32],[32,16],[16,8]], type=lambda x :eval(x))
     parser.add_argument("--dgm_layers", default= [[32,16,4],[],[]], type=lambda x :eval(x))
@@ -745,5 +647,4 @@ if __name__ == "__main__":
 
     parser.set_defaults(default_root_path='./log')
     params = parser.parse_args(namespace=params)
-
     run_training_process(params)
