@@ -1,13 +1,16 @@
 import os
 import torch
 import numpy as np
+
 import torch_geometric
 from torch import nn
 from torch.nn import Module, ModuleList, Sequential
 from torch_geometric.nn import EdgeConv, DenseGCNConv, DenseGraphConv, GCNConv, GATConv
 from torch.utils.data import DataLoader
+
 import pytorch_lightning as pl
 from argparse import Namespace
+
 import torch
 import numpy
 import torch
@@ -19,6 +22,17 @@ from torch import nn
 #Euclidean distance
 def pairwise_euclidean_distances(x, dim=-1):
     dist = torch.cdist(x,x)**2
+    return dist, x
+
+# #Poincarè disk distance r=1 (Hyperbolic)
+def pairwise_poincare_distances(x, dim=-1):
+    x_norm = (x**2).sum(dim,keepdim=True)
+    x_norm = (x_norm.sqrt()-1).relu() + 1 
+    x = x/(x_norm*(1+1e-2))
+    x_norm = (x**2).sum(dim,keepdim=True)
+    
+    pq = torch.cdist(x,x)**2
+    dist = torch.arccosh(1e-6+1+2*pq/((1-x_norm)*(1-x_norm.transpose(-1,-2))))**2
     return dist, x
  
 class MLP(nn.Module): 
@@ -54,7 +68,9 @@ from torch import nn
 class DGM_d(nn.Module):
     def __init__(self, embed_f, k=5, distance=pairwise_euclidean_distances, sparse=True):
         super(DGM_d, self).__init__()
+        
         self.sparse=sparse
+        
         self.temperature = nn.Parameter(torch.tensor(1. if distance=="hyperbolic" else 4.).float())
         self.embed_f = embed_f
         self.centroid=None
@@ -73,7 +89,9 @@ class DGM_d(nn.Module):
         if self.training:
             if fixedges is not None:                
                 return x, fixedges, torch.zeros(fixedges.shape[0],fixedges.shape[-1]//self.k,self.k,dtype=torch.float,device=x.device)
+            
             D, _x = self.distance(x)
+           
             #sampling here
             edges_hat, logprobs = self.sample_without_replacement(D)
                 
@@ -260,6 +278,15 @@ class DGM_Model(pl.LightningModule):
         self.log('val_loss', loss.detach())
         self.log('val_acc', 100*correct_t)
 
+import sys
+import torch
+import pickle
+import numpy as np
+import os.path as osp
+import torch
+from torch_geometric.datasets import Planetoid
+import torch_geometric.transforms as T
+ 
 def get_planetoid_dataset(name, normalize_features=True, transform=None, split="complete"):
     path = osp.join('.', 'data', name)
     if split == 'complete':
@@ -330,11 +357,7 @@ def run_training_process(run_params):
         train_data = PlanetoidDataset(split='train', name=run_params.dataset, device='cuda')
         val_data = PlanetoidDataset(split='val', name=run_params.dataset, samples_per_epoch=1)
         test_data = PlanetoidDataset(split='test', name=run_params.dataset, samples_per_epoch=1)
-        
-    if run_params.dataset == 'tadpole':
-        train_data = TadpoleDataset(fold=run_params.fold,train=True, device='cuda')
-        val_data = test_data = TadpoleDataset(fold=run_params.fold, train=False,samples_per_epoch=1)
-                                   
+                           
     if train_data is None:
         raise Exception("Dataset %s not supported" % run_params.dataset)
         
