@@ -2,7 +2,6 @@ import os
 import torch
 import numpy
 import pykeops
-import numpy as np
 from torch import nn
 import os.path as osp
 import torch_geometric
@@ -19,29 +18,23 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch_geometric.nn import EdgeConv, DenseGCNConv, DenseGraphConv, GCNConv, GATConv
 def pairwise_euclidean_distances(x, dim=-1):
     return torch.cdist(x,x)**2, x
-class MLP(nn.Module): 
-    def __init__(self, layers_size,final_activation=False, dropout=0):
+class MLP(nn.Module):
+    def __init__(self, layers_size, final_activation=False, dropout=0):
         super(MLP, self).__init__()
-        layers = []
-        for li in range(1,len(layers_size)):
-            if dropout>0:
-                layers.append(nn.Dropout(dropout))
-            layers.append(nn.Linear(layers_size[li-1],layers_size[li]))
-            if li==len(layers_size)-1 and not final_activation:
-                continue
-            layers.append(nn.LeakyReLU(0.1))
-        self.MLP = nn.Sequential(*layers)
+        layers = [nn.Dropout(dropout) if dropout > 0 else None] + [
+            nn.Linear(layers_size[li - 1], layers_size[li])
+            for li in range(1, len(layers_size))
+        ] + [nn.LeakyReLU(0.1) if li != len(layers_size) - 1 or final_activation else None for li in range(1, len(layers_size))]
+        self.MLP = nn.Sequential(*[layer for layer in layers if layer is not None])
     def forward(self, x, e=None):
         x = self.MLP(x)
         return x
 class Identity(nn.Module):
-    def __init__(self,retparam=None):
-        self.retparam=retparam
+    def __init__(self, retparam=None):
         super(Identity, self).__init__()
+        self.retparam = retparam
     def forward(self, *params):
-        if self.retparam is not None:
-            return params[self.retparam]
-        return params
+        return params[self.retparam] if self.retparam is not None else params
 class DGM_d(nn.Module):
     def __init__(self, embed_f, k=5, distance=pairwise_euclidean_distances, sparse=True):
         super(DGM_d, self).__init__()
@@ -52,17 +45,13 @@ class DGM_d(nn.Module):
         self.scale=None
         self.k = k
         self.debug=False
-        if distance == 'euclidean':
-            self.distance = pairwise_euclidean_distances
-        else:
-            self.distance = pairwise_poincare_distances
+        self.distance = pairwise_euclidean_distances
     def forward(self, x, A, not_used=None, fixedges=None):
         x = self.embed_f(x,A)  
         if self.training:
             if fixedges is not None:                
                 return x, fixedges, torch.zeros(fixedges.shape[0],fixedges.shape[-1]//self.k,self.k,dtype=torch.float,device=x.device)
             D, _x = self.distance(x)
-            #sampling here
             edges_hat, logprobs = self.sample_without_replacement(D)
         else:
             with torch.no_grad():
@@ -102,12 +91,10 @@ class DGM_Model(pl.LightningModule):
         self.node_g = ModuleList() 
         for i,(dgm_l,conv_l) in enumerate(zip(dgm_layers,conv_layers)):
             if len(dgm_l)>0:
-                if 'ffun' not in hparams or hparams.ffun == 'gcn':
-                    self.graph_f.append(DGM_d(GCNConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))
+                self.graph_f.append(DGM_d(GCNConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))
             else:
                 self.graph_f.append(Identity())
-            if hparams.gfun == 'gcn':
-                self.node_g.append(GCNConv(conv_l[0],conv_l[1]))
+            self.node_g.append(GCNConv(conv_l[0],conv_l[1]))
         self.fc = MLP(fc_layers, final_activation=False)
         if hparams.pre_fc is not None and len(hparams.pre_fc)>0:
             self.pre_fc = MLP(hparams.pre_fc, final_activation=True)
@@ -129,8 +116,7 @@ class DGM_Model(pl.LightningModule):
                 lprobslist.append(lprobs)
         return self.fc(x),torch.stack(lprobslist,-1) if len(lprobslist)>0 else None
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
-        return optimizer
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
     def training_step(self, train_batch, batch_idx):
         optimizer = self.optimizers(use_pl_optimizer=True)
         optimizer.zero_grad()
@@ -242,8 +228,6 @@ def run_training_process(run_params):
         train_data = PlanetoidDataset(split='train', name=run_params.dataset, device='cuda')
         val_data = PlanetoidDataset(split='val', name=run_params.dataset, samples_per_epoch=1)
         test_data = PlanetoidDataset(split='test', name=run_params.dataset, samples_per_epoch=1)       
-    if train_data is None:
-        raise Exception("Dataset %s not supported" % run_params.dataset)
     train_loader = DataLoader(train_data, batch_size=1,num_workers=0)
     val_loader = DataLoader(val_data, batch_size=1)
     test_loader = DataLoader(test_data, batch_size=1)
