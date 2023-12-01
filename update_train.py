@@ -1,38 +1,24 @@
 import os
 import torch
-import numpy as np
-import torch_geometric
-from torch import nn
-from torch.nn import Module, ModuleList, Sequential
-from torch_geometric.nn import EdgeConv, DenseGCNConv, DenseGraphConv, GCNConv, GATConv
-from torch.utils.data import DataLoader
-import pytorch_lightning as pl
-from argparse import Namespace
 import numpy
-import torch
 import pykeops
-from pykeops.torch import LazyTensor
-from torch.nn import Module, ModuleList, Sequential
+import numpy as np
 from torch import nn
-from torch.nn import Module, ModuleList, Sequential
-from torch import nn
-from torch.utils.data import DataLoader
-from argparse import ArgumentParser
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-from pytorch_lightning.loggers import TensorBoardLogger
 import os.path as osp
-from torch_geometric.datasets import Planetoid
+import torch_geometric
+from argparse import Namespace
+import pytorch_lightning as pl
+from pykeops.torch import LazyTensor
+from argparse import ArgumentParser
 import torch_geometric.transforms as T
+from torch.utils.data import DataLoader
+from torch_geometric.datasets import Planetoid
+from torch.nn import Module, ModuleList, Sequential
+from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from torch_geometric.nn import EdgeConv, DenseGCNConv, DenseGraphConv, GCNConv, GATConv
 def pairwise_euclidean_distances(x, dim=-1):
     return torch.cdist(x,x)**2, x
-def pairwise_poincare_distances(x, dim=-1):
-    x_norm = (x**2).sum(dim,keepdim=True)
-    x_norm = (x_norm.sqrt()-1).relu() + 1 
-    x = x/(x_norm*(1+1e-2))
-    x_norm = (x**2).sum(dim,keepdim=True)
-    pq = torch.cdist(x,x)**2
-    dist = torch.arccosh(1e-6+1+2*pq/((1-x_norm)*(1-x_norm.transpose(-1,-2))))**2
-    return dist, x
 class MLP(nn.Module): 
     def __init__(self, layers_size,final_activation=False, dropout=0):
         super(MLP, self).__init__()
@@ -118,23 +104,10 @@ class DGM_Model(pl.LightningModule):
             if len(dgm_l)>0:
                 if 'ffun' not in hparams or hparams.ffun == 'gcn':
                     self.graph_f.append(DGM_d(GCNConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))
-                if hparams.ffun == 'gat':
-                    self.graph_f.append(DGM_d(GATConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))
-                if hparams.ffun == 'mlp':
-                    self.graph_f.append(DGM_d(MLP(dgm_l),k=hparams.k,distance=hparams.distance))
-                if hparams.ffun == 'knn':
-                    self.graph_f.append(DGM_d(Identity(retparam=0),k=hparams.k,distance=hparams.distance))
             else:
                 self.graph_f.append(Identity())
-            
-            if hparams.gfun == 'edgeconv':
-                conv_l=conv_l.copy()
-                conv_l[0]=conv_l[0]*2
-                self.node_g.append(EdgeConv(MLP(conv_l), hparams.pooling))
             if hparams.gfun == 'gcn':
                 self.node_g.append(GCNConv(conv_l[0],conv_l[1]))
-            if hparams.gfun == 'gat':
-                self.node_g.append(GATConv(conv_l[0],conv_l[1]))
         self.fc = MLP(fc_layers, final_activation=False)
         if hparams.pre_fc is not None and len(hparams.pre_fc)>0:
             self.pre_fc = MLP(hparams.pre_fc, final_activation=True)
@@ -291,19 +264,8 @@ def run_training_process(run_params):
         run_params.pre_fc[0]=train_data.n_features
     run_params.fc_layers[-1] = train_data.num_classes
     model = DGM_Model(run_params)
-    checkpoint_callback = ModelCheckpoint(
-        save_last=True,
-        save_top_k=1,
-        verbose=True,
-        monitor='val_loss',
-        mode='min'
-    )
-    early_stop_callback = EarlyStopping(
-        monitor='val_loss',
-        min_delta=0.00,
-        patience=20,
-        verbose=False,
-        mode='min')
+    checkpoint_callback = ModelCheckpoint(save_last=True,save_top_k=1,verbose=True,monitor='val_loss',mode='min')
+    early_stop_callback = EarlyStopping(monitor='val_loss',min_delta=0.00,patience=20,verbose=False,mode='min')
     callbacks = [checkpoint_callback,early_stop_callback]
     if val_data==test_data:
         callbacks = None
@@ -314,11 +276,7 @@ def run_training_process(run_params):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser = pl.Trainer.add_argparse_args(parser)
-    params = parser.parse_args(['--gpus','1',                         
-                              '--log_every_n_steps','100',                          
-                              '--max_epochs','100',
-                              '--progress_bar_refresh_rate','10',                         
-                              '--check_val_every_n_epoch','1'])
+    params = parser.parse_args(['--gpus','1','--log_every_n_steps','100', '--max_epochs','100','--progress_bar_refresh_rate','10','--check_val_every_n_epoch','1'])
     parser.add_argument("--num_gpus", default=10, type=int)
     parser.add_argument("--dataset", default='Cora')
     parser.add_argument("--conv_layers", default=[[32,32],[32,16],[16,8]], type=lambda x :eval(x))
