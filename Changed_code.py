@@ -264,9 +264,9 @@ class TadpoleDataset(torch.utils.data.Dataset):
         self.X = torch.cat([self.X_train, self.X_test], dim=0)  
         self.y = torch.cat([self.y_train, self.y_test], dim=0)
         
-        self.X = self.X[55000:65000]
-        self.y = self.y[55000:65000]
-        self.mask = self.mask[55000:65000]
+        self.X = self.X[40000:65000]
+        self.y = self.y[40000:65000]
+        self.mask = self.mask[40000:65000]
 
         self.samples_per_epoch = samples_per_epoch
           
@@ -292,9 +292,9 @@ def run_training_process(run_params):
     if run_params.dataset == 'tadpole':
         train_data = TadpoleDataset(fold=run_params.fold,train=True, device='cuda')
         val_data = test_data = TadpoleDataset(fold=run_params.fold, train=False,samples_per_epoch=1)
-    train_loader = DataLoader(train_data, batch_size=1,num_workers=0)
-    val_loader = DataLoader(val_data, batch_size=1)
-    test_loader = DataLoader(test_data, batch_size=1)
+    train_loader = DataLoader(train_data, batch_size=64,num_workers=0)
+    val_loader = DataLoader(val_data, batch_size=64)
+    test_loader = DataLoader(test_data, batch_size=64)
     class MyDataModule(pl.LightningDataModule):
         def setup(self,stage=None):
             pass
