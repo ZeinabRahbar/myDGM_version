@@ -264,11 +264,10 @@ class TadpoleDataset(torch.utils.data.Dataset):
         self.X = torch.cat([self.X_train, self.X_test], dim=0)  
         self.y = torch.cat([self.y_train, self.y_test], dim=0)
 
-        """
         self.X = self.X[50000:61000]
         self.y = self.y[50000:61000]
         self.mask = self.mask[50000:61000]
-"""
+
         self.samples_per_epoch = samples_per_epoch
           
        
