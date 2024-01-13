@@ -19,8 +19,7 @@ from argparse import ArgumentParser
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 def pairwise_euclidean_distances(x, dim=-1):
-    dist = torch.cdist(x,x)**2
-    return dist, x
+    return torch.cdist(x,x)**2, x
 class MLP(nn.Module):
     def __init__(self, layers_size,final_activation=False, dropout=0):
         super(MLP, self).__init__()
