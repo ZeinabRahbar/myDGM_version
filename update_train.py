@@ -18,28 +18,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch_geometric.nn import EdgeConv, DenseGCNConv, DenseGraphConv, GCNConv, GATConv
 def pairwise_euclidean_distances(x, dim=-1):
     return torch.cdist(x,x)**2, x
-
-# Define the GNN model
-class GCNRW(nn.Module):
-    def __init__(self, layers_size, final_activation=False, dropout=0):
-        super(GCNRW, self).__init__()
-        self.n_features = layers_size[0]
-        self.n_classes = layers_size[2]
-        self.n_hidden = layers_size[1]
-        self.W = nn.Parameter(torch.Tensor(self.n_features, self.n_hidden).uniform_(-1, 1))
-
-    def forward(self, x, edge_index):
-        edge_index = torch.sparse_coo_tensor(edge_index, torch.ones(edge_index.shape[1]), (data.num_nodes, data.num_nodes)).to(torch.float)
-        
-        edge_index = edge_index.to(x.device)
-        x = x.to(edge_index.device)
-
-        A_hat = utils.add_self_loops(edge_index)[0]
-        A_hat2 = torch.mm(A_hat, A_hat)
-
-        H = torch.sigmoid(-torch.mm(torch.mm(A_hat2, x), self.W))
-
-        return H
         
 class MLP(nn.Module):
     def __init__(self, layers_size, final_activation=False, dropout=0):
@@ -135,7 +113,7 @@ class DGM_Model(pl.LightningModule):
                 self.node_g.append(GCNConv(conv_l[0],conv_l[1]))
             if hparams.gfun == 'gat':
                 self.node_g.append(GATConv(conv_l[0],conv_l[1]))
-        self.fc = GCNRW(fc_layers, final_activation=False)
+        self.fc = MLP(fc_layers, final_activation=False)
         if hparams.pre_fc is not None and len(hparams.pre_fc)>0:
             self.pre_fc = MLP(hparams.pre_fc, final_activation=True)
         self.avg_accuracy = None
