@@ -14,8 +14,7 @@ from argparse import Namespace
 import torch
 import numpy
 import torch
-import pykeops
-from pykeops.torch import LazyTensor
+
 from torch.nn import Module, ModuleList, Sequential
 from torch import nn
 
