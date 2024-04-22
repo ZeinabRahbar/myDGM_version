@@ -1,13 +1,11 @@
 import os
 import torch
 import numpy
-import pykeops
 from torch import nn
 import os.path as osp
 import torch_geometric
 from argparse import Namespace
 import pytorch_lightning as pl
-from pykeops.torch import LazyTensor
 from argparse import ArgumentParser
 import torch_geometric.transforms as T
 from torch.utils.data import DataLoader
@@ -17,8 +15,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch_geometric.nn import EdgeConv, DenseGCNConv, DenseGraphConv, GCNConv, GATConv
 def pairwise_euclidean_distances(x, dim=-1):
-    return torch.cdist(x,x)**2, x
-        
+    return torch.cdist(x,x)**2, x        
 class MLP(nn.Module):
     def __init__(self, layers_size, final_activation=False, dropout=0):
         super(MLP, self).__init__()
@@ -78,14 +75,11 @@ class DGM_d(nn.Module):
         if self.sparse:
             return (edges+(torch.arange(b).to(logits.device)*n)[:,None,None]).transpose(0,1).reshape(2,-1), logprobs
         return edges, logprobs
- 
 class DGM_Model(pl.LightningModule):
     def __init__(self, hparams):
         super(DGM_Model,self).__init__()
-        
         if type(hparams) is not Namespace:
             hparams = Namespace(**hparams)
-        
         self.save_hyperparameters(hparams)
         conv_layers = hparams.conv_layers
         fc_layers = hparams.fc_layers
@@ -198,7 +192,6 @@ class DGM_Model(pl.LightningModule):
         loss = torch.nn.functional.binary_cross_entropy_with_logits(test_pred,test_lab)
         self.log('val_loss', loss.detach())
         self.log('val_acc', 100*correct_t)
-            
 import sys
 def get_planetoid_dataset(name, normalize_features=True, transform=None, split="complete"):
     path = osp.join('.', 'data', name)
