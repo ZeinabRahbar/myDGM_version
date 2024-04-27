@@ -379,26 +379,6 @@ class TadpoleDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.X, self.y, self.mask, [[]]
 
-train_dataset = TadpoleDataset(train=False)
-
-print("\n*******************************************\n")
-# Print the dimensions of each class
-print('X shape:', train_dataset.X.shape)
-print('y shape:', train_dataset.y.shape)
-print('mask shape:', train_dataset.mask.shape)
-print('mask values:', train_dataset.mask)
-
-
-train_dataset = TadpoleDataset(train=True)
-
-print("\n*******************************************\n")
-# Print the dimensions of each class
-print('X shape:', train_dataset.X.shape)
-print('y shape:', train_dataset.y.shape)
-print('mask shape:', train_dataset.mask.shape)
-print('mask values:', train_dataset.mask)
-
-
 os.environ["CUDA_VISIBLE_DEVICES"]="0";
 def run_training_process(run_params):
     if run_params.dataset == 'tadpole':
