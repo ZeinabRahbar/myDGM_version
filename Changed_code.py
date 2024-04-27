@@ -431,19 +431,7 @@ class TadpoleDataset(torch.utils.data.Dataset):
         with torch.no_grad():  # Disable gradient tracking
             for i in range(num_images):
                 image = images[i].unsqueeze(0).unsqueeze(0).repeat(1, 3, 1, 1).float().to(device)
-                feature = self.model.conv1(image)
-                feature = self.model.bn1(feature)
-                feature = self.model.relu(feature)
-                feature = self.model.maxpool(feature)
-
-                feature = self.model.layer1(feature)
-                feature = self.model.layer2(feature)
-                feature = self.model.layer3(feature)
-                feature = self.model.layer4(feature)
-
-                feature = self.model.avgpool(feature)
-                feature = torch.flatten(feature, 1)
-
+                feature = self.model.features(image).squeeze()
                 features.append(feature)
 
         return torch.stack(features, dim=0)
