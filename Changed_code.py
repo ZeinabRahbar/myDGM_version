@@ -418,7 +418,7 @@ def run_training_process(run_params):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser = pl.Trainer.add_argparse_args(parser)
-    params = parser.parse_args(['--gpus','1','--log_every_n_steps','100','--max_epochs','100','--progress_bar_refresh_rate','10','--check_val_every_n_epoch','1'])
+    params = parser.parse_args(['--gpus','1','--log_every_n_steps','100','--max_epochs','1','--progress_bar_refresh_rate','10','--check_val_every_n_epoch','1'])
     parser.add_argument("--num_gpus", default=10, type=int)
     parser.add_argument("--dataset", default='tadpole')
     parser.add_argument("--fold", default='0', type=int) #Used for k-fold cross validation in tadpole/ukbb
