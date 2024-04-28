@@ -18,7 +18,9 @@ import torch_geometric.transforms as T
 from argparse import ArgumentParser
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
-
+import torch
+from torch.utils.data import Dataset
+from torchvision import datasets, transforms
 def pairwise_euclidean_distances(x, dim=-1):
     return torch.cdist(x,x)**2, x
 
