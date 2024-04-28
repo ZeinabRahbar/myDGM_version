@@ -379,6 +379,43 @@ class TadpoleDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.X, self.y, self.mask, [[]]
 
+import os
+from PIL import Image
+import torch
+import torch.utils.data as data
+
+
+
+
+class TadpoleDataset(torch.utils.data.Dataset):
+    """Face Landmarks dataset."""
+
+    def __init__(self, fold=0, train=True, samples_per_epoch=100, device='cpu',full=False):
+        with open('tadpole_data.pickle', 'rb') as f:
+            X_,y_,train_mask_,test_mask_, weight_ = pickle.load(f) # Load the data
+
+        if not full:
+            X_ = X_[...,:30,:] # For DGM we use modality 1 (M1) for both node representation and graph learning.
+
+
+        self.n_features = X_.shape[-2]
+        self.num_classes = y_.shape[-2]
+
+        self.X = torch.from_numpy(X_[:,:,fold]).float().to(device)
+        self.y = torch.from_numpy(y_[:,:,fold]).float().to(device)
+        self.weight = torch.from_numpy(np.squeeze(weight_[:1,fold])).float().to(device)
+        if train:
+            self.mask = torch.from_numpy(train_mask_[:,fold]).to(device)
+        else:
+            self.mask = torch.from_numpy(test_mask_[:,fold]).to(device)
+
+        self.samples_per_epoch = samples_per_epoch
+
+    def __len__(self):
+        return self.samples_per_epoch
+
+    def __getitem__(self, idx):
+        return self.X,self.y,self.mask, [[]]
 
         
 os.environ["CUDA_VISIBLE_DEVICES"]="0";
