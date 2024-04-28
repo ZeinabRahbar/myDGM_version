@@ -17,7 +17,8 @@ import torch
 
 from torch.nn import Module, ModuleList, Sequential
 from torch import nn
-
+import pykeops
+from pykeops.torch import LazyTensor
 #Euclidean distance
 def pairwise_euclidean_distances(x, dim=-1):
     dist = torch.cdist(x,x)**2
