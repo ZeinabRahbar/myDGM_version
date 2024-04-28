@@ -314,116 +314,8 @@ class DGM_Model(pl.LightningModule):
         loss = torch.nn.functional.binary_cross_entropy_with_logits(test_pred,test_lab)
         self.log('val_loss', loss.detach())
         self.log('val_acc', 100*correct_t)
-
-import torch
-import torchvision.transforms as transforms
-from torchvision import datasets
-from torchvision.models import squeezenet1_0
-
-class TadpoleDataset(torch.utils.data.Dataset):
-    def __init__(self, fold=0, train=True, samples_per_epoch=10, device='cpu', full=False):
-        transform = transforms.Compose([
-            transforms.Resize((224, 224)),  # Resize images to (224, 224)
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-        ])
-        if train:
-            split = 'train'
-        else:
-            split = 'test'
-
-        self.train_dataset = datasets.MNIST(root='./data', train=(split == 'train'), download=True, transform=transform)
-        self.test_dataset = datasets.MNIST(root='./data', train=(split == 'test'), download=True, transform=transform)
-
-
-        self.n_features = 512
-        self.num_classes = 10
-
-        if split == 'train':
-            self.mask = torch.zeros(70000, dtype=torch.float32)
-            self.mask[:60000] = 1  # Set the first 60,000 elements to 1
-        else:
-            self.mask = torch.zeros(70000, dtype=torch.float32)
-            self.mask[60000:] = 1  
-
-
-        self.model = squeezenet1_0(pretrained=True)  # Load MobileNet-V2 pretrained model
-        self.model.to(device).eval()  # Set the model to evaluation mode
-
-        self.X_train = self.vectorize_images(self.train_dataset.data, device)
-        self.y_train = torch.eye(self.num_classes)[self.train_dataset.targets].float().to(device)
-
-        self.X_test = self.vectorize_images(self.test_dataset.data, device)
-        self.y_test = torch.eye(self.num_classes)[self.test_dataset.targets].float().to(device)
-
-        self.X = torch.cat([self.X_train, self.X_test], dim=0)
-        self.y = torch.cat([self.y_train, self.y_test], dim=0)
         
-        self.samples_per_epoch = samples_per_epoch
-
-    def vectorize_images(self, images, device):
-        num_images = images.shape[0]
-        features = []
-
-        with torch.no_grad():  # Disable gradient tracking
-            for i in range(num_images):
-                image = images[i].unsqueeze(0).unsqueeze(0).repeat(1, 3, 1, 1).float().to(device)
-                feature = self.model.features(image).squeeze()
-                features.append(feature)
-
-        return torch.stack(features, dim=0)
-
-    def __len__(self):
-        return self.samples_per_epoch
-
-    def __getitem__(self, idx):
-        return self.X, self.y, self.mask, [[]]
-
-import os
-from PIL import Image
-import torch
-import torch.utils.data as data
-
-
-
-
-class TadpoleDataset(torch.utils.data.Dataset):
-    """Face Landmarks dataset."""
-
-    def __init__(self, fold=0, train=True, samples_per_epoch=100, device='cpu',full=False):
-        with open('tadpole_data.pickle', 'rb') as f:
-            X_,y_,train_mask_,test_mask_, weight_ = pickle.load(f) # Load the data
-
-        if not full:
-            X_ = X_[...,:30,:] # For DGM we use modality 1 (M1) for both node representation and graph learning.
-
-
-        self.n_features = X_.shape[-2]
-        self.num_classes = y_.shape[-2]
-
-        self.X = torch.from_numpy(X_[:,:,fold]).float().to(device)
-        self.y = torch.from_numpy(y_[:,:,fold]).float().to(device)
-        self.weight = torch.from_numpy(np.squeeze(weight_[:1,fold])).float().to(device)
-        if train:
-            self.mask = torch.from_numpy(train_mask_[:,fold]).to(device)
-        else:
-            self.mask = torch.from_numpy(test_mask_[:,fold]).to(device)
-
-        self.samples_per_epoch = samples_per_epoch
-
-    def __len__(self):
-        return self.samples_per_epoch
-
-    def __getitem__(self, idx):
-        return self.X,self.y,self.mask, [[]]
-
-
-
-import torch
-import torchvision.transforms as transforms
-from torchvision import datasets
-
-class TadpoleDataset(torch.utils.data.Dataset):
+class MnistDataset(torch.utils.data.Dataset):
     def __init__(self, fold=0, train=True, samples_per_epoch=10, device='cpu', full=False):
         transform = transforms.Compose([
             transforms.Resize((224, 224)),  # Resize images to (224, 224)
@@ -438,61 +330,7 @@ class TadpoleDataset(torch.utils.data.Dataset):
         self.train_dataset = datasets.MNIST(root='./data', train=(split == 'train'), download=True, transform=transform)
         self.test_dataset = datasets.MNIST(root='./data', train=(split == 'test'), download=True, transform=transform)
 
-        self.n_features = 28 * 28  # Number of features in MNIST images (28x28 = 784)
-        self.num_classes = 10
-
-        if split == 'train':
-            self.mask = torch.zeros(70000, dtype=torch.float32)
-            self.mask[:60000] = 1  # Set the first 60,000 elements to 1
-        else:
-            self.mask = torch.zeros(70000, dtype=torch.float32)
-            self.mask[60000:] = 1  
-
-        self.X_train = self.vectorize_images(self.train_dataset.data, device)
-        self.y_train = torch.eye(self.num_classes)[self.train_dataset.targets].float().to(device)
-
-        self.X_test = self.vectorize_images(self.test_dataset.data, device)
-        self.y_test = torch.eye(self.num_classes)[self.test_dataset.targets].float().to(device)
-
-        self.X = torch.cat([self.X_train, self.X_test], dim=0)
-        self.y = torch.cat([self.y_train, self.y_test], dim=0)
-        
-        self.samples_per_epoch = samples_per_epoch
-
-    def vectorize_images(self, images, device):
-        num_images = images.shape[0]
-        features = []
-
-        for i in range(num_images):
-            image = images[i].unsqueeze(0).float().to(device)
-            feature = image.view(-1)
-            features.append(feature)
-
-        return torch.stack(features, dim=0)
-
-    def __len__(self):
-        return self.samples_per_epoch
-
-    def __getitem__(self, idx):
-        return self.X, self.y, self.mask, [[]]
-
-
-class TadpoleDataset(torch.utils.data.Dataset):
-    def __init__(self, fold=0, train=True, samples_per_epoch=10, device='cpu', full=False):
-        transform = transforms.Compose([
-            transforms.Resize((224, 224)),  # Resize images to (224, 224)
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-        ])
-        if train:
-            split = 'train'
-        else:
-            split = 'test'
-
-        self.train_dataset = datasets.CIFAR10(root='./data', train=(split == 'train'), download=True, transform=transform)
-        self.test_dataset = datasets.CIFAR10(root='./data', train=(split == 'test'), download=True, transform=transform)
-
-        self.n_features = 32*32  # Number of features in MNIST images (28x28 = 784)
+        self.n_features = 28*28  # Number of features in MNIST images (28x28 = 784)
         self.num_classes = 10
 
         if split == 'train':
@@ -533,8 +371,8 @@ class TadpoleDataset(torch.utils.data.Dataset):
 os.environ["CUDA_VISIBLE_DEVICES"]="0";
 def run_training_process(run_params):
     if run_params.dataset == 'tadpole':
-        train_data = TadpoleDataset(fold=run_params.fold,train=True, device='cuda')
-        val_data = test_data = TadpoleDataset(fold=run_params.fold, train=False,samples_per_epoch=1)
+        train_data = MnistDataset(fold=run_params.fold,train=True, device='cuda')
+        val_data = test_data = MnistDataset(fold=run_params.fold, train=False,samples_per_epoch=1)
     train_loader = DataLoader(train_data, batch_size=1,num_workers=0)
     val_loader = DataLoader(val_data, batch_size=1)
     test_loader = DataLoader(test_data, batch_size=1)
