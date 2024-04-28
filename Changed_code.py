@@ -314,20 +314,21 @@ class MnistDataset(torch.utils.data.Dataset):
     def vectorize_images(self, images, device):
         num_images = images.shape[0]
         features = []
-
+    
         for i in range(num_images):
             image = images[i].unsqueeze(0).float().to(device)
             feature = image.view(-1)
             features.append(feature)
-
+    
         return torch.stack(features, dim=0)
-
     def __len__(self):
         return self.samples_per_epoch
 
     def __getitem__(self, idx):
         return self.X, self.y, self.mask, [[]]
-        
+
+
+
 os.environ["CUDA_VISIBLE_DEVICES"]="0";
 def run_training_process(run_params):
     if run_params.dataset == 'tadpole':
