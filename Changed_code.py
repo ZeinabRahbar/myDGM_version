@@ -477,12 +477,6 @@ class TadpoleDataset(torch.utils.data.Dataset):
         return self.X, self.y, self.mask, [[]]
 
 
-import torch
-import torchvision.transforms as transforms
-from torchvision import datasets
-import torch.nn as nn
-import torch.nn.functional as F
-
 class TadpoleDataset(torch.utils.data.Dataset):
     def __init__(self, fold=0, train=True, samples_per_epoch=10, device='cpu', full=False):
         transform = transforms.Compose([
@@ -495,10 +489,10 @@ class TadpoleDataset(torch.utils.data.Dataset):
         else:
             split = 'test'
 
-        self.train_dataset = datasets.MNIST(root='./data', train=(split == 'train'), download=True, transform=transform)
-        self.test_dataset = datasets.MNIST(root='./data', train=(split == 'test'), download=True, transform=transform)
+        self.train_dataset = datasets.CIFAR10(root='./data', train=(split == 'train'), download=True, transform=transform)
+        self.test_dataset = datasets.CIFAR10(root='./data', train=(split == 'test'), download=True, transform=transform)
 
-        self.n_features = 64  # Number of output channels from the convolutional layer
+        self.n_features = 32*32  # Number of features in MNIST images (28x28 = 784)
         self.num_classes = 10
 
         if split == 'train':
@@ -506,10 +500,7 @@ class TadpoleDataset(torch.utils.data.Dataset):
             self.mask[:60000] = 1  # Set the first 60,000 elements to 1
         else:
             self.mask = torch.zeros(70000, dtype=torch.float32)
-            self.mask[60000:] = 1
-
-        self.model = ConvNet()
-        self.model.to(device).eval()  # Set the model to evaluation mode
+            self.mask[60000:] = 1  
 
         self.X_train = self.vectorize_images(self.train_dataset.data, device)
         self.y_train = torch.eye(self.num_classes)[self.train_dataset.targets].float().to(device)
@@ -519,18 +510,17 @@ class TadpoleDataset(torch.utils.data.Dataset):
 
         self.X = torch.cat([self.X_train, self.X_test], dim=0)
         self.y = torch.cat([self.y_train, self.y_test], dim=0)
-
+        
         self.samples_per_epoch = samples_per_epoch
 
     def vectorize_images(self, images, device):
         num_images = images.shape[0]
         features = []
 
-        with torch.no_grad():  # Disable gradient tracking
-            for i in range(num_images):
-                image = images[i].unsqueeze(0).float().to(device)
-                feature = self.model.forward(image).squeeze()
-                features.append(feature)
+        for i in range(num_images):
+            image = images[i].unsqueeze(0).float().to(device)
+            feature = image.view(-1)
+            features.append(feature)
 
         return torch.stack(features, dim=0)
 
@@ -539,21 +529,6 @@ class TadpoleDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return self.X, self.y, self.mask, [[]]
-
-
-class ConvNet(nn.Module):
-    def __init__(self):
-        super(ConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3)
-        self.fc1 = nn.Linear(64 * 24 * 24, 64)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
-        return x
         
 os.environ["CUDA_VISIBLE_DEVICES"]="0";
 def run_training_process(run_params):
