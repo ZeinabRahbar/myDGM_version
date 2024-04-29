@@ -328,7 +328,64 @@ class MnistDataset(torch.utils.data.Dataset):
         return self.X, self.y, self.mask, [[]]
 
 
+import torch
+import torch.utils.data as data
+import torchvision.datasets as datasets
+import torchvision.transforms as transforms
 
+class MnistDataset(data.Dataset):
+    def __init__(self, fold=0, train=True, samples_per_epoch=10, device='cpu', full=False):
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),  # Resize images to (224, 224)
+            transforms.ToTensor(),
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        ])
+        if train:
+            split = 'train'
+        else:
+            split = 'test'
+
+        self.train_dataset = datasets.MNIST(root='./data', train=(split == 'train'), download=True, transform=transform)
+        self.test_dataset = datasets.MNIST(root='./data', train=(split == 'test'), download=True, transform=transform)
+
+        self.n_features = 28*28  # Number of features in MNIST images (28x28 = 784)
+        self.num_classes = 10
+
+        if split == 'train':
+            self.mask = torch.zeros(70000, dtype=torch.float32)
+            self.mask[:60000] = 1  # Set the first 60,000 elements to 1
+        else:
+            self.mask = torch.zeros(70000, dtype=torch.float32)
+            self.mask[60000:] = 1  
+
+        self.X_train = self.vectorize_images(self.train_dataset.data, device)
+        self.y_train = torch.eye(self.num_classes)[self.train_dataset.targets].float().to(device)
+
+        self.X_test = self.vectorize_images(self.test_dataset.data, device)
+        self.y_test = torch.eye(self.num_classes)[self.test_dataset.targets].float().to(device)
+
+        self.X = torch.cat([self.X_train, self.X_test], dim=0)
+        self.y = torch.cat([self.y_train, self.y_test], dim=0)
+        
+        self.samples_per_epoch = samples_per_epoch
+
+    def vectorize_images(self, images, device):
+        num_images = images.shape[0]
+        features = []
+    
+        for i in range(num_images):
+            image = images[i].unsqueeze(0).float().to(device)
+            feature = image.view(-1)
+            features.append(feature)
+    
+        return torch.stack(features, dim=0)
+    
+    def __len__(self):
+        return self.samples_per_epoch
+
+    def __getitem__(self, idx):
+        return self.X, self.y, self.mask, [[]]
+        
 os.environ["CUDA_VISIBLE_DEVICES"]="0";
 def run_training_process(run_params):
     if run_params.dataset == 'tadpole':
