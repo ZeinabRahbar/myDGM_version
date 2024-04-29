@@ -326,6 +326,7 @@ class MnistDataset(data.Dataset):
 
     def __getitem__(self, idx):
         return self.X, self.y, self.mask, [[]]
+
         
 os.environ["CUDA_VISIBLE_DEVICES"]="0";
 def run_training_process(run_params):
