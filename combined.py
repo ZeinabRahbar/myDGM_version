@@ -19,9 +19,27 @@ from torch_geometric.nn import EdgeConv, DenseGCNConv, DenseGraphConv, GCNConv, 
 import torch_geometric.nn as gnn
 
 # Define the pairwise Euclidean distance function
-def pairwise_euclidean_distances(x, dim=-1):
-    return torch.cdist(x, x)**2, x
 
+def pairwise_euclidean_distances(x, dim=-1):
+    return torch.cdist(x,x)**2, x        
+    
+class MLP(nn.Module):
+    def __init__(self, layers_size, final_activation=False, dropout=0):
+        super(MLP, self).__init__()
+        layers = [nn.Dropout(dropout) if dropout > 0 else None] + [
+            nn.Linear(layers_size[li - 1], layers_size[li])
+            for li in range(1, len(layers_size))
+        ] + [nn.LeakyReLU(0.1) if li != len(layers_size) - 1 or final_activation else None for li in range(1, len(layers_size))]
+        self.MLP = nn.Sequential(*[layer for layer in layers if layer is not None])
+    def forward(self, x, e=None):
+        x = self.MLP(x)
+        return x
+class Identity(nn.Module):
+    def __init__(self, retparam=None):
+        super(Identity, self).__init__()
+        self.retparam = retparam
+    def forward(self, *params):
+        return params[self.retparam] if self.retparam is not None else params
 # Define the GCNRW module
 class GCNRW(nn.Module):
     def __init__(self, n_features, n_classes, n_hidden=6000, lambda_=10):
