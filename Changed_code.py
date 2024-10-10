@@ -296,10 +296,10 @@ class TadpoleDataset(torch.utils.data.Dataset):
 
         if split == 'train':
             self.mask = torch.zeros(70000, dtype=torch.float32)
-            self.mask[:60000] = 1  # Set the first 60,000 elements to 1
+            self.mask[:1000] = 1  # Set the first 60,000 elements to 1
         else:
             self.mask = torch.zeros(70000, dtype=torch.float32)
-            self.mask[60000:] = 1  # Set the first 60,000 elements to 1
+            self.mask[1000:10000] = 1  # Set the first 60,000 elements to 1
 
         self.model = mobilenet_v2(pretrained=True)  # Load MobileNet-V2 pretrained model
         self.model.to(device).eval()  # Set the model to evaluation mode
