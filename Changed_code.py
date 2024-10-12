@@ -333,6 +333,45 @@ class TadpoleDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.X, self.y, self.mask, [[]]
 
+import torch
+from torchvision import datasets, transforms
+from torch.utils.data import Dataset
+
+class TadpoleDataset(Dataset):
+    def __init__(self, fold=0, train=True, samples_per_epoch=10, device='cuda', full=False):
+        transform = transforms.Compose([
+            transforms.Resize((28, 28)),  # Resize images to (28, 28) for MNIST
+            transforms.ToTensor()
+        ])
+        
+        # Load MNIST dataset
+        self.dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+        
+        # Shuffle dataset
+        indices = torch.randperm(len(self.dataset))
+        self.dataset.data = self.dataset.data[indices]
+        self.dataset.targets = self.dataset.targets[indices]
+
+        # Create masks for training and testing
+        self.mask = torch.zeros(len(self.dataset), dtype=torch.float32)
+        
+        if train:
+            self.mask[:1000] = 1  # Set first 1000 elements to 1 for training
+            self.data = self.dataset.data[:1000].view(-1, 784).float()  # Vectorize to shape (1000, 784)
+            self.targets = self.dataset.targets[:1000]
+        else:
+            self.mask[1000:] = 1  # Set remaining elements to 1 for testing
+            self.data = self.dataset.data[1000:].view(-1, 784).float()  # Vectorize to shape (N-1000, 784)
+            self.targets = self.dataset.targets[1000:]
+
+        self.samples_per_epoch = samples_per_epoch
+
+    def __len__(self):
+        return min(self.samples_per_epoch, len(self.data))
+
+    def __getitem__(self, idx):
+        return self.data[idx], self.targets[idx], self.mask[idx], []
+        
 os.environ["CUDA_VISIBLE_DEVICES"]="0";
 def run_training_process(run_params):
     if run_params["dataset"] == 'tadpole':
