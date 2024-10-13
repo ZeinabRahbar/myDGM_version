@@ -271,7 +271,6 @@ class DGM_Model(pl.LightningModule):
 import torch
 import torchvision.transforms as transforms
 from torchvision import datasets
-from torchvision.models import mobilenet_v2
 import time
 
 timy = time.time()
