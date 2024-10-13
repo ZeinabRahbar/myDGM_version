@@ -359,10 +359,10 @@ class TadpoleDataset(torch.utils.data.Dataset):
 
         if split == 'train':
             self.mask = torch.zeros(70000, dtype=torch.float32)
-            self.mask[:1000] = 1  # Set the first 60,000 elements to 1
+            self.mask[:3000] = 1  # Set the first 60,000 elements to 1
         else:
             self.mask = torch.zeros(70000, dtype=torch.float32)
-            self.mask[1000:10000] = 1  # Set the first 60,000 elements to 1
+            self.mask[3000:10000] = 1  # Set the first 60,000 elements to 1
 
        
 
