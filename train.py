@@ -288,12 +288,19 @@ class DGM_Model(pl.LightningModule):
         optimizer.zero_grad()
         
         X, y, mask, edges = train_batch
+        print("e",edges.ahape)
         edges = edges[0]
+        print("ee",edges.ahape)
+        
         
         assert(X.shape[0]==1) #only works in transductive setting
         mask=mask[0]
         
         pred,logprobs = self(X,edges)
+
+        print("p.shape", pred.shape)
+        print("logprobs.shape", logprobs.shape)
+
         
         train_pred = pred[:,mask.to(torch.bool),:]
         train_lab = y[:,mask.to(torch.bool),:]
