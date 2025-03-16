@@ -133,3 +133,72 @@ if __name__ == "__main__":
     
     output, logprobs = model(x, edges)
     print(output.shape, logprobs.shape)
+
+
+# class GraphLearn(nn.Module):
+#     def __init__(self, embed_f, k=5):
+#         super(GraphLearn, self).__init__()
+#         self.graph_f = nn.ModuleList()
+#         self.node_g = nn.ModuleList()
+
+#         self.conv_layers=[[16, 32], [32, 64]]
+#         self.fc_layers=[16, 10]
+#         self.dgm_layers=[[16, 16], []]
+
+#         self.k=k
+#         self.distance='euclidean'
+#         self.ffun='gcn'
+#         self.gfun='mlp'
+#         self.pre_fc=[64,32]
+#         self.dropout=0.5
+
+#         for i, (dgm_l, conv_l) in enumerate(zip(self.dgm_layers, self.conv_layers)):
+#             if len(dgm_l) > 0:
+#                 if self.ffun == 'gcn':
+#                     self.graph_f.append(DGM_d(embed_f, k=self.k, distance=self.distance))
+#                 elif self.ffun == 'gat':
+#                     self.graph_f.append(DGM_d(embed_f, k=self.k, distance=self.distance))
+#                 elif self.ffun == 'mlp':
+#                     self.graph_f.append(DGM_d(embed_f, k=self.k, distance=self.distance))
+#                 elif self.ffun == 'knn':
+#                     self.graph_f.append(DGM_d(embed_f, k=self.k, distance=self.distance))
+#             else:
+#                 self.graph_f.append(nn.Identity())
+            
+#             if self.gfun == 'edgeconv':
+#                 conv_l = conv_l.copy()
+#                 conv_l[0] = conv_l[0] * 2
+#                 self.node_g.append(EdgeConv(MLP(conv_l)))
+#             elif self.gfun == 'gcn':
+#                 self.node_g.append(GCNConv(conv_l[0], conv_l[1]))
+#             elif self.gfun == 'gat':
+#                 self.node_g.append(GATConv(conv_l[0], conv_l[1]))
+        
+#         self.fc = MLP(self.fc_layers, final_activation=False)
+        
+#         if self.pre_fc is not None and len(self.pre_fc) > 0:
+#             self.pre_fc = MLP(self.pre_fc, final_activation=True)
+
+#     def forward(self, x, edges=None):
+#         if self.self.pre_fc is not None and len(self.self.pre_fc) > 0:
+#             x = self.pre_fc(x)
+        
+#         graph_x = x.detach()
+#         lprobslist = []
+#         for f, g in zip(self.graph_f, self.node_g):
+#             graph_x, edges, lprobs = f(graph_x, edges)
+#             x = torch.relu(g(x, edges)).view(x.shape[0], x.shape[1], -1)
+#             graph_x = torch.cat([graph_x, x.detach()], -1)
+#             if lprobs is not None:
+#                 lprobslist.append(lprobs)
+        
+#         print("aaaaa", self.fc(x))
+#         print(self.fc(x).shape)
+#         print(graph_x)
+#         print(graph_x.shape)
+
+#         print(torch.stack(lprobslist, -1))
+#         print(torch.stack(lprobslist, -1).shape)
+
+#         return self.fc(x), torch.stack(lprobslist, -1) if len(lprobslist) > 0 else None
+
